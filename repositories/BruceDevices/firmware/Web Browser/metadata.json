@@ -1,0 +1,16 @@
+{
+  "name": "Web Browser",
+  "description": "Very basic web browser",
+  "category": "Utilities",
+  "version": "1.0.0",
+  "commit": "300f5d00ba00599105e3b1d8790f3c6bf3f4f512",
+  "owner": "BruceDevices",
+  "repo": "firmware",
+  "path": "/sd_files/interpreter/",
+  "files": [
+    {
+      "source": "browser_bruce.js",
+      "destination": "Web Browser.js"
+    }
+  ]
+}

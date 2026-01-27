@@ -11,7 +11,7 @@
     {
       "name": "Device Info",
       "description": "Device information display showing hardware details and memory statistics",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "slug": "emericklaw/Bruce-Device-Info-App/Device Info"
     }
   ]

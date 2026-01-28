@@ -4,6 +4,96 @@ const fs = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 
+// Rate limiting for GitHub API calls
+const API_DELAY = 1000; // 1 second between API calls
+let lastApiCall = 0;
+
+// GitHub API helper with rate limiting and authentication
+async function githubApiCall(url, options = {}) {
+    // Ensure we don't exceed rate limits
+    const now = Date.now();
+    const timeSinceLastCall = now - lastApiCall;
+    if (timeSinceLastCall < API_DELAY) {
+        await new Promise(resolve => setTimeout(resolve, API_DELAY - timeSinceLastCall));
+    }
+    lastApiCall = Date.now();
+
+    const headers = {
+        'Accept': 'application/vnd.github.v3+json',
+        'User-Agent': 'App-Store-Data-Validator/1.0',
+        ...options.headers
+    };
+
+    // Add authentication if available
+    const token = process.env.GITHUB_TOKEN;
+    if (token) {
+        headers['Authorization'] = `token ${token}`;
+    }
+
+    try {
+        const response = await fetch(url, {
+            ...options,
+            headers
+        });
+        
+        // Handle rate limit headers
+        const remaining = response.headers.get('X-RateLimit-Remaining');
+        const resetTime = response.headers.get('X-RateLimit-Reset');
+        
+        if (remaining && parseInt(remaining) < 10) {
+            console.log(`⚠️  GitHub API rate limit low: ${remaining} calls remaining`);
+            if (resetTime) {
+                const resetDate = new Date(parseInt(resetTime) * 1000);
+                console.log(`   Rate limit resets at: ${resetDate.toLocaleTimeString()}`);
+            }
+        }
+
+        return response;
+    } catch (error) {
+        console.log(`⚠️  GitHub API error for ${url}: ${error.message}`);
+        throw error;
+    }
+}
+
+// Cache for Git Trees API calls
+const gitTreesCache = new Map();
+
+// Function to get all files in a repository at a specific commit
+async function getRepositoryFiles(owner, repo, commit) {
+    const cacheKey = `${owner}/${repo}@${commit}`;
+    
+    if (gitTreesCache.has(cacheKey)) {
+        return gitTreesCache.get(cacheKey);
+    }
+
+    try {
+        const treeUrl = `https://api.github.com/repos/${owner}/${repo}/git/trees/${commit}?recursive=1`;
+        const response = await githubApiCall(treeUrl);
+
+        if (response.status === 200) {
+            const data = await response.json();
+            // Create a Set of file paths for fast lookup
+            const filePaths = new Set(
+                data.tree
+                    .filter(item => item.type === 'blob') // Only files, not directories
+                    .map(item => item.path)
+            );
+            
+            gitTreesCache.set(cacheKey, filePaths);
+            return filePaths;
+        } else if (response.status === 404) {
+            console.log(`      - ❌ Repository or commit not found: ${owner}/${repo}@${commit}`);
+            return null;
+        } else {
+            console.log(`      - ⚠️  Could not fetch repository tree (status: ${response.status})`);
+            return null;
+        }
+    } catch (error) {
+        console.log(`      - ⚠️  Could not fetch repository tree: ${error.message}`);
+        return null;
+    }
+}
+
 // Function to execute git commands safely
 function gitCommand(command) {
     try {
@@ -141,7 +231,7 @@ async function validateMetadata(filePath, dir) {
             if (metadata.owner && metadata.repo) {
                 try {
                     const githubUrl = `https://api.github.com/repos/${metadata.owner}/${metadata.repo}/commits/${commit}`;
-                    const response = await fetch(githubUrl);
+                    const response = await githubApiCall(githubUrl);
 
                     if (response.status === 200) {
                         console.log(`      - ✅ Commit \`${commit}...\` exists on GitHub`);
@@ -290,52 +380,53 @@ async function validateMetadata(filePath, dir) {
             
             // Check each file exists in the repository at the specified commit
             if (metadata.owner && metadata.repo && metadata.commit) {
-                for (const file of metadata.files) {
-                    let filePath;
-                    let displayPath;
+                console.log(`      - 🔍 Fetching repository file tree...`);
+                const repositoryFiles = await getRepositoryFiles(metadata.owner, metadata.repo, metadata.commit);
+                
+                if (repositoryFiles) {
+                    console.log(`      - ✅ Repository tree loaded (${repositoryFiles.size} files)`);
                     
-                    if (typeof file === 'string') {
-                        // String format: direct file path
-                        const cleanFilePath = file.startsWith('/') ? file.substring(1) : file;
-                        filePath = path.posix.join(metadata.path === '/' ? '' : metadata.path, cleanFilePath);
-                        displayPath = file;
-                    } else if (typeof file === 'object' && file !== null) {
-                        // Object format: must have 'source' and 'destination' properties
-                        if (!file.source || !file.destination) {
-                            console.log(`      - ❌ File object must contain 'source' and 'destination' properties: \`${JSON.stringify(file)}\``);
+                    for (const file of metadata.files) {
+                        let filePath;
+                        let displayPath;
+                        
+                        if (typeof file === 'string') {
+                            // String format: direct file path
+                            const cleanFilePath = file.startsWith('/') ? file.substring(1) : file;
+                            filePath = path.posix.join(metadata.path === '/' ? '' : metadata.path, cleanFilePath);
+                            displayPath = file;
+                        } else if (typeof file === 'object' && file !== null) {
+                            // Object format: must have 'source' and 'destination' properties
+                            if (!file.source || !file.destination) {
+                                console.log(`      - ❌ File object must contain 'source' and 'destination' properties: \`${JSON.stringify(file)}\``);
+                                hasErrors = true;
+                                continue;
+                            }
+                            if (typeof file.source !== 'string' || typeof file.destination !== 'string') {
+                                console.log(`      - ❌ File object 'source' and 'destination' must be strings: \`${JSON.stringify(file)}\``);
+                                hasErrors = true;
+                                continue;
+                            }
+                            // Use source path for verification, combined with metadata.path
+                            const cleanSourcePath = file.source.startsWith('/') ? file.source.substring(1) : file.source;
+                            filePath = path.posix.join(metadata.path === '/' ? '' : metadata.path, cleanSourcePath);
+                            displayPath = `${file.source} → ${file.destination}`;
+                        } else {
+                            console.log(`      - ❌ File entry must be a string or object with 'source' and 'destination' properties: \`${file}\``);
                             hasErrors = true;
                             continue;
                         }
-                        if (typeof file.source !== 'string' || typeof file.destination !== 'string') {
-                            console.log(`      - ❌ File object 'source' and 'destination' must be strings: \`${JSON.stringify(file)}\``);
-                            hasErrors = true;
-                            continue;
-                        }
-                        // Use source path for verification, combined with metadata.path
-                        const cleanSourcePath = file.source.startsWith('/') ? file.source.substring(1) : file.source;
-                        filePath = path.posix.join(metadata.path === '/' ? '' : metadata.path, cleanSourcePath);
-                        displayPath = `${file.source} → ${file.destination}`;
-                    } else {
-                        console.log(`      - ❌ File entry must be a string or object with 'source' and 'destination' properties: \`${file}\``);
-                        hasErrors = true;
-                        continue;
-                    }
-                    
-                    try {
-                        const githubUrl = `https://api.github.com/repos/${metadata.owner}/${metadata.repo}/contents/${filePath}?ref=${metadata.commit}`;
-                        const response = await fetch(githubUrl);
-
-                        if (response.status === 200) {
+                        
+                        // Check if file exists in the repository tree
+                        if (repositoryFiles.has(filePath)) {
                             console.log(`      - ✅ File exists at commit: \`${displayPath}\``);
-                        } else if (response.status === 404) {
+                        } else {
                             console.log(`      - ❌ File not found at commit \`${metadata.commit}...\`: \`${displayPath}\``);
                             hasErrors = true;
-                        } else {
-                            console.log(`      - ⚠️  Could not verify file \`${displayPath}\` (status: ${response.status})`);
                         }
-                    } catch (error) {
-                        console.log(`      - ⚠️  Could not verify file \`${displayPath}\`: ${error.message}`);
                     }
+                } else {
+                    console.log(`      - ⚠️  Could not verify files - repository tree unavailable`);
                 }
             } else {
                 console.log(`      - ⚠️  Cannot verify files without owner/repo/commit information`);
@@ -486,12 +577,7 @@ async function managePRLabels(hasMetadataIssues, hasMissingMetadata, hasInvalidM
 
     try {
         // Get current labels
-        const currentLabelsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels`, {
-            headers: {
-                'Authorization': `token ${token}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
+        const currentLabelsResponse = await githubApiCall(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels`);
 
         let currentLabels = [];
         if (currentLabelsResponse.ok) {
@@ -558,11 +644,9 @@ async function managePRLabels(hasMetadataIssues, hasMissingMetadata, hasInvalidM
 
         // Add labels
         for (const labelName of labelsToAdd) {
-            await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels`, {
+            await githubApiCall(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels`, {
                 method: 'POST',
                 headers: {
-                    'Authorization': `token ${token}`,
-                    'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
@@ -574,12 +658,8 @@ async function managePRLabels(hasMetadataIssues, hasMissingMetadata, hasInvalidM
 
         // Remove labels
         for (const labelName of labelsToRemove) {
-            await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(labelName)}`, {
-                method: 'DELETE',
-                headers: {
-                    'Authorization': `token ${token}`,
-                    'Accept': 'application/vnd.github.v3+json'
-                }
+            await githubApiCall(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/labels/${encodeURIComponent(labelName)}`, {
+                method: 'DELETE'
             });
             console.log(`Removed label: ${labelName}`);
         }
@@ -661,12 +741,7 @@ ${summary}
 
     try {
         // Find and update previous validation comments
-        const commentsResponse = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
-            headers: {
-                'Authorization': `token ${token}`,
-                'Accept': 'application/vnd.github.v3+json'
-            }
-        });
+        const commentsResponse = await githubApiCall(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`);
 
         if (commentsResponse.ok) {
             const comments = await commentsResponse.json();
@@ -688,11 +763,9 @@ ${comment.body}
 
 </details>`;
 
-                await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/comments/${comment.id}`, {
+                await githubApiCall(`https://api.github.com/repos/${owner}/${repo}/issues/comments/${comment.id}`, {
                     method: 'PATCH',
                     headers: {
-                        'Authorization': `token ${token}`,
-                        'Accept': 'application/vnd.github.v3+json',
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify({
@@ -703,11 +776,9 @@ ${comment.body}
         }
 
         // Post new comment
-        const response = await fetch(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
+        const response = await githubApiCall(`https://api.github.com/repos/${owner}/${repo}/issues/${issueNumber}/comments`, {
             method: 'POST',
             headers: {
-                'Authorization': `token ${token}`,
-                'Accept': 'application/vnd.github.v3+json',
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({

@@ -55,7 +55,39 @@ async function githubApiCall(url, options = {}) {
     }
 }
 
-// Cache for Git Trees API calls
+// Cache for commit verification results
+const commitVerificationCache = new Map();
+
+// Function to verify commit exists (cached)
+async function verifyCommitExists(owner, repo, commit) {
+    const cacheKey = `${owner}/${repo}@${commit}`;
+    
+    if (commitVerificationCache.has(cacheKey)) {
+        return commitVerificationCache.get(cacheKey);
+    }
+
+    try {
+        const githubUrl = `https://api.github.com/repos/${owner}/${repo}/commits/${commit}`;
+        const response = await githubApiCall(githubUrl);
+
+        const result = {
+            exists: response.status === 200,
+            status: response.status
+        };
+        
+        commitVerificationCache.set(cacheKey, result);
+        return result;
+    } catch (error) {
+        const result = {
+            exists: false,
+            error: error.message
+        };
+        commitVerificationCache.set(cacheKey, result);
+        return result;
+    }
+}
+
+// Cache for commit verification results
 const gitTreesCache = new Map();
 
 // Function to get all files in a repository at a specific commit
@@ -229,20 +261,17 @@ async function validateMetadata(filePath, dir) {
 
             // Verify commit exists on GitHub using owner/repo from metadata
             if (metadata.owner && metadata.repo) {
-                try {
-                    const githubUrl = `https://api.github.com/repos/${metadata.owner}/${metadata.repo}/commits/${commit}`;
-                    const response = await githubApiCall(githubUrl);
-
-                    if (response.status === 200) {
-                        console.log(`      - ✅ Commit \`${commit}...\` exists on GitHub`);
-                    } else if (response.status === 404) {
-                        console.log(`      - ❌ Commit \`${commit}...\` not found in ${metadata.owner}/${metadata.repo}`);
-                        hasErrors = true;
-                    } else {
-                        console.log(`      - ⚠️  Could not verify commit on GitHub (status: ${response.status})`);
-                    }
-                } catch (error) {
-                    console.log(`      - ⚠️  Could not verify commit on GitHub: ${error.message}`);
+                const verification = await verifyCommitExists(metadata.owner, metadata.repo, commit);
+                
+                if (verification.exists) {
+                    console.log(`      - ✅ Commit \`${commit}...\` exists on GitHub`);
+                } else if (verification.status === 404) {
+                    console.log(`      - ❌ Commit \`${commit}...\` not found in ${metadata.owner}/${metadata.repo}`);
+                    hasErrors = true;
+                } else if (verification.error) {
+                    console.log(`      - ⚠️  Could not verify commit on GitHub: ${verification.error}`);
+                } else {
+                    console.log(`      - ⚠️  Could not verify commit on GitHub (status: ${verification.status})`);
                 }
             } else {
                 console.log(`      - ⚠️  Cannot verify commit without owner/repo information`);
@@ -833,26 +862,6 @@ async function main() {
 
     console.log(`Found ${metadataDirectories.length} directories with changed metadata.json files`);
 
-    // Initialize metadata info file for PR comment
-    fs.writeFileSync('/tmp/metadata_info.txt', '');
-
-    // Capture all output for PR comment
-    let allOutput = '';
-    const originalLog = console.log;
-    const originalError = console.error;
-
-    console.log = (...args) => {
-        const message = args.join(' ');
-        allOutput += message + '\n';
-        originalLog(...args);
-    };
-
-    console.error = (...args) => {
-        const message = args.join(' ');
-        allOutput += message + '\n';
-        originalError(...args);
-    };
-
     let validationFailed = false;
     let metadataFound = false;
     let hasInvalidMetadata = false;
@@ -896,16 +905,96 @@ async function main() {
     console.log('📂 Processing changed metadata.json files...');
     console.log('');
 
-    // Validate each directory with changed metadata.json
+    // Group directories by repository to optimize API calls
+    const repoGroups = new Map();
     for (const { directory, metadataFile, logoFile } of metadataDirectories) {
-        console.log(`- 📁 Directory: \`${directory}\``);
-        metadataFound = true;
+        // Extract owner/repo from directory path
+        const pathParts = directory.split(path.sep);
+        const repoIndex = pathParts.indexOf('repositories');
+        if (repoIndex >= 0 && pathParts.length > repoIndex + 2) {
+            const owner = pathParts[repoIndex + 1];
+            const repo = pathParts[repoIndex + 2];
+            const repoKey = `${owner}/${repo}`;
+            
+            if (!repoGroups.has(repoKey)) {
+                repoGroups.set(repoKey, { owner, repo, directories: [] });
+            }
+            repoGroups.get(repoKey).directories.push({ directory, metadataFile, logoFile });
+        } else {
+            // Fallback: treat as individual directory
+            repoGroups.set(directory, { owner: null, repo: null, directories: [{ directory, metadataFile, logoFile }] });
+        }
+    }
+
+    // Initialize metadata info collection
+    let allMetadataInfo = '';
+    let allValidationOutput = '';
+
+    // Process each repository group
+    for (const [repoKey, { owner, repo, directories }] of repoGroups) {
+        if (owner && repo) {
+            console.log(`📋 Repository: ${repoKey}`);
+            console.log('');
+        }
         
-        await validateDirectoryFiles(directory, metadataFile, logoFile);
-        console.log('');
+        // Process each directory in this repository
+        for (const { directory, metadataFile, logoFile } of directories) {
+            console.log(`📁 Processing: \`${directory}\``);
+            console.log('');
+            
+            // Capture validation output for this directory
+            let directoryOutput = '';
+            const originalLog = console.log;
+            const originalError = console.error;
+
+            console.log = (...args) => {
+                const message = args.join(' ');
+                directoryOutput += message + '\n';
+                originalLog(...args);
+            };
+
+            console.error = (...args) => {
+                const message = args.join(' ');
+                directoryOutput += message + '\n';
+                originalError(...args);
+            };
+
+            // Validate this directory
+            const result = await validateDirectoryFiles(directory, metadataFile, logoFile);
+            
+            // Restore console functions
+            console.log = originalLog;
+            console.error = originalError;
+            
+            // Add metadata info if we got it
+            if (result.directoryMetadataInfo) {
+                allMetadataInfo += result.directoryMetadataInfo;
+                
+                // Show metadata summary for this directory
+                console.log('📋 **Metadata Summary:**');
+                console.log(result.directoryMetadataInfo.trim());
+                console.log('');
+            }
+            
+            // Add this directory's validation output to the total
+            allValidationOutput += `📁 Directory: \`${directory}\`\n`;
+            allValidationOutput += directoryOutput;
+            allValidationOutput += '\n';
+            
+            console.log('─'.repeat(80));
+            console.log('');
+        }
+        
+        if (owner && repo) {
+            console.log('═'.repeat(80));
+            console.log('');
+        }
     }
 
     async function validateDirectoryFiles(dirPath, metadataFile, logoPath) {
+        let directoryValid = true;
+        let directoryMetadataInfo = '';
+        
         // Check for metadata.json
         console.log(`  - 📄 \`metadata.json\``);
         if (fs.existsSync(metadataFile)) {
@@ -913,12 +1002,16 @@ async function main() {
             metadataFound = true;
 
             // Validate metadata.json
-            if (!(await validateMetadata(metadataFile, dirPath))) {
+            const result = await validateMetadata(metadataFile, dirPath);
+            if (!result.success) {
                 validationFailed = true;
                 hasInvalidMetadata = true;
+                directoryValid = false;
             }
+            directoryMetadataInfo = result.metadataInfo;
         } else {
             console.log(`    - ❌ File not found`);
+            directoryValid = false;
         }
 
         // Check for logo.png
@@ -936,24 +1029,31 @@ async function main() {
                 if (width < 64 || height < 64) {
                     console.log(`      - ❌ Logo too small: minimum size is 64x64`);
                     validationFailed = true;
+                    directoryValid = false;
                 } else if (width > 512 || height > 512) {
                     console.log(`      - ❌ Logo too large: maximum size is 512x512`);
                     validationFailed = true;
+                    directoryValid = false;
                 } else if (width !== height) {
                     console.log(`      - ❌ Logo must be square: ${width}x${height} is not square`);
                     validationFailed = true;
+                    directoryValid = false;
                 } else {
                     console.log(`      - ✅ Logo size valid: ${width}x${height}`);
                 }
             } else {
                 console.log(`      - ❌ Unable to read logo dimensions (not a valid PNG?)`);
                 validationFailed = true;
+                directoryValid = false;
             }
         } else {
             console.log(`    - ❌ File not found`);
             hasMissingLogo = true;
             validationFailed = true;
+            directoryValid = false;
         }
+        
+        return { directoryValid, directoryMetadataInfo };
     }
 
     let validationSuccess = false;
@@ -981,23 +1081,11 @@ async function main() {
         validationSuccess = true;
     }
 
-    // Restore original console methods
-    console.log = originalLog;
-    console.error = originalError;
-
-    // Read metadata info
-    let metadataInfo = '';
-    try {
-        metadataInfo = fs.readFileSync('/tmp/metadata_info.txt', 'utf8').trim();
-    } catch (error) {
-        metadataInfo = '';
-    }
-
     // Manage PR labels based on validation results
     await managePRLabels(!validationSuccess, hasMissingMetadata, hasInvalidMetadata, hasMissingLogo, validationSuccess, isExternalContribution);
 
-    // Post PR comment
-    await postPRComment(validationSuccess, allOutput, summary, metadataInfo);
+    // Post PR comment with the collected validation output and metadata info
+    await postPRComment(validationSuccess, allValidationOutput, summary, allMetadataInfo);
 
     // Exit with appropriate code
     if (!validationSuccess) {

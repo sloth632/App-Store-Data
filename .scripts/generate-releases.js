@@ -151,30 +151,45 @@ async function main() {
         };
 
         try {
-            // Write with pretty formatting
-            fs.writeFileSync(releaseFilePath, JSON.stringify(releaseData, null, 2), 'utf8');
+            // Check if file content has actually changed before writing
+            let shouldWriteFile = true;
+            if (fs.existsSync(releaseFilePath)) {
+                const existingContent = fs.readFileSync(releaseFilePath, 'utf8');
+                const newContent = JSON.stringify(releaseData, null, 2);
+                shouldWriteFile = existingContent !== newContent;
+            }
+
+            if (shouldWriteFile) {
+                // Write with pretty formatting
+                fs.writeFileSync(releaseFilePath, JSON.stringify(releaseData, null, 2), 'utf8');
+                console.log(`📄 Generated ${releaseFileName} with ${apps.length} apps (content changed)`);
+            } else {
+                console.log(`📄 Skipped ${releaseFileName} with ${apps.length} apps (no content change)`);
+            }
+            
             releaseFiles.push(releaseFileName);
             categoriesWithReleases.push(category);
-            console.log(`📄 Generated ${releaseFileName} with ${apps.length} apps`);
         } catch (error) {
             console.error(`❌ Failed to write ${releaseFileName}: ${error.message}`);
         }
     }
 
-    // Commit the category files to git first
+    // Commit only the category files that actually changed
     try {
-        console.log('📝 Committing category files to git...');
-        execSync('git add releases/category-*.json', { cwd: path.join(__dirname, '..') });
+        console.log('📝 Committing changed category files to git...');
         
-        // Check if there are any changes to commit
+        // Check which files actually have changes
         const gitStatus = execSync('git status --porcelain releases/category-*.json', { 
             encoding: 'utf8', 
             cwd: path.join(__dirname, '..') 
         }).trim();
         
         if (gitStatus) {
+            // Add and commit only the changed files
+            execSync('git add releases/category-*.json', { cwd: path.join(__dirname, '..') });
             execSync('git commit -m "Update category release files"', { cwd: path.join(__dirname, '..') });
-            console.log('✅ Category files committed to git');
+            console.log('✅ Changed category files committed to git');
+            console.log('📋 Changed files:', gitStatus.split('\n').map(line => line.trim()).join(', '));
         } else {
             console.log('ℹ️ No changes to commit for category files');
         }
@@ -196,9 +211,6 @@ async function main() {
             try {
                 // Get the last commit timestamp when this specific category file was modified
                 const gitCommand = `git log -1 --format=%ct --follow -- "releases/${categoryFileName}"`;
-                console.log(`🔍 Running git command: ${gitCommand}`);
-                console.log(`🔍 Working directory: ${path.join(__dirname, '..')}`);
-                
                 const result = execSync(gitCommand, {
                     encoding: 'utf8',
                     stdio: 'pipe',

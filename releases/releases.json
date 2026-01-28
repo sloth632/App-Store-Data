@@ -1,0 +1,191 @@
+{
+  "count": 31,
+  "apps": [
+    {
+      "name": "App Store",
+      "description": "App store for Bruce devices with over-the-air install and updates for scripts and themes",
+      "version": "1.0.0",
+      "slug": "BruceDevices/App-Store/App Store"
+    },
+    {
+      "name": "Arcade Games",
+      "description": "Collection of arcade games",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Arcade Games"
+    },
+    {
+      "name": "Bruce Theme (GIF)",
+      "description": "A bold, glowing upgrade for your Bruce device with neon energy and shark power.",
+      "version": "1.3.0",
+      "slug": "emericklaw/Bruce-Theme/GIF-240x135px/Bruce Theme (GIF)"
+    },
+    {
+      "name": "Bruce Theme (GIF)",
+      "description": "A bold, glowing upgrade for your Bruce device with neon energy and shark power.",
+      "version": "1.3.0",
+      "slug": "emericklaw/Bruce-Theme/GIF-320x170px/Bruce Theme (GIF)"
+    },
+    {
+      "name": "Bruce Theme (GIF)",
+      "description": "A bold, glowing upgrade for your Bruce device with neon energy and shark power.",
+      "version": "1.3.0",
+      "slug": "emericklaw/Bruce-Theme/GIF-320x240px/Bruce Theme (GIF)"
+    },
+    {
+      "name": "Bruce Theme (GIF)",
+      "description": "A bold, glowing upgrade for your Bruce device with neon energy and shark power.",
+      "version": "1.3.0",
+      "slug": "emericklaw/Bruce-Theme/GIF-480x222px/Bruce Theme (GIF)"
+    },
+    {
+      "name": "Bruce Theme (PNG)",
+      "description": "A bold, glowing upgrade for your Bruce device with neon energy and shark power.",
+      "version": "1.3.0",
+      "slug": "emericklaw/Bruce-Theme/PNG-240x135px/Bruce Theme (PNG)"
+    },
+    {
+      "name": "Bruce Theme (PNG)",
+      "description": "A bold, glowing upgrade for your Bruce device with neon energy and shark power.",
+      "version": "1.3.0",
+      "slug": "emericklaw/Bruce-Theme/PNG-320x170px/Bruce Theme (PNG)"
+    },
+    {
+      "name": "Bruce Theme (PNG)",
+      "description": "A bold, glowing upgrade for your Bruce device with neon energy and shark power.",
+      "version": "1.3.0",
+      "slug": "emericklaw/Bruce-Theme/PNG-320x240px/Bruce Theme (PNG)"
+    },
+    {
+      "name": "Bruce Theme (PNG)",
+      "description": "A bold, glowing upgrade for your Bruce device with neon energy and shark power.",
+      "version": "1.3.0",
+      "slug": "emericklaw/Bruce-Theme/PNG-480x222px/Bruce Theme (PNG)"
+    },
+    {
+      "name": "Calculator",
+      "description": "Calculator",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Calculator"
+    },
+    {
+      "name": "Calculator",
+      "description": "Calculator",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Calculator"
+    },
+    {
+      "name": "Crypto Prices",
+      "description": "Track real-time crypto prices",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Crypto Prices"
+    },
+    {
+      "name": "Device Info",
+      "description": "Device information display showing hardware details and memory statistics",
+      "version": "1.0.1",
+      "slug": "emericklaw/Bruce-Device-Info-App/Device Info"
+    },
+    {
+      "name": "Dino",
+      "description": "Dino game",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Dino"
+    },
+    {
+      "name": "DTMF Tones",
+      "description": "Generate DTMF tones",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/DTMF Tones"
+    },
+    {
+      "name": "Flashlight",
+      "description": "Simple multi-colour flashlight",
+      "version": "1.0.1",
+      "slug": "emericklaw/Bruce-Flashlight-App/Flashlight"
+    },
+    {
+      "name": "Hello World",
+      "description": "A simple test app for the Bruce JavaScript interpreter that displays 'Hello World!' on the screen.",
+      "version": "1.0.0",
+      "slug": "emericklaw/Bruce-Hello-World-Example-App/Hello World"
+    },
+    {
+      "name": "Highway Racer",
+      "description": "Car racing game",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Highway Racer"
+    },
+    {
+      "name": "IR Bruce Force",
+      "description": "Brute force IR remote control codes",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/IR Bruce Force"
+    },
+    {
+      "name": "IR2Keyboard",
+      "description": "Use any IR remote to send commands to your pc requires: IR receiver + USBHID-capable device",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/IR2Keyboard"
+    },
+    {
+      "name": "Lock Device",
+      "description": "Password protection app that locks your Bruce device on startup or on-demand",
+      "version": "1.1.1",
+      "slug": "emericklaw/Bruce-Lock-Device-App/Lock Device"
+    },
+    {
+      "name": "Ping Pong",
+      "description": "Ping Pong game",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Ping Pong"
+    },
+    {
+      "name": "RF Bruce Force",
+      "description": "Brute force RF signals",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/RF Bruce Force"
+    },
+    {
+      "name": "Snake",
+      "description": "Snake game",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Snake"
+    },
+    {
+      "name": "Snake Cardputer",
+      "description": "Snake game for Cardputer",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Snake Cardputer"
+    },
+    {
+      "name": "Space Shooter",
+      "description": "Space Shooter game",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Space Shooter"
+    },
+    {
+      "name": "Tamagochi",
+      "description": "Tamagochi virtual pet",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Tamagochi"
+    },
+    {
+      "name": "Tone Generator",
+      "description": "Tone generator that can play different frequencies/musical notes with customisable duration",
+      "version": "1.0.0",
+      "slug": "emericklaw/Bruce-Tone-Generator-App/Tone Generator"
+    },
+    {
+      "name": "Web Browser",
+      "description": "Very basic web browser",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/Web Browser"
+    },
+    {
+      "name": "WiFi Bruce Force",
+      "description": "Brute force WiFi network password with dictionary attack",
+      "version": "1.0.0",
+      "slug": "BruceDevices/firmware/sd_files/interpreter/WiFi Bruce Force"
+    }
+  ]
+}

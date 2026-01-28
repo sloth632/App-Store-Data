@@ -32,7 +32,7 @@
       "name": "Snake",
       "description": "Snake game",
       "version": "1.0.0",
-      "supported_devices": "Cardputer.*",
+      "supported-devices": "Cardputer.*",
       "slug": "BruceDevices/firmware/Snake"
     },
     {

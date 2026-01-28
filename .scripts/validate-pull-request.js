@@ -725,8 +725,7 @@ async function postPRComment(validationSuccess, individualAppDetails, summary, m
     for (const { metadataInfo: appMetadataInfo, validationOutput } of individualAppDetails) {
         if (appMetadataInfo && appMetadataInfo.trim()) {
             appDetailsSection += appMetadataInfo;
-            appDetailsSection += `🔍 **Validation Steps**\n\n`;
-            appDetailsSection += `<details>\n<summary>View Details</summary>\n\n`;
+            appDetailsSection += `<details>\n<summary>🔍 **Validation Steps** (click to expand)</summary>\n\n`;
             appDetailsSection += validationOutput;
             appDetailsSection += `\n</details>\n\n`;
         }

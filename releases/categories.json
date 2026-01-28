@@ -1,6 +1,6 @@
 {
   "totalCategories": 8,
-  "totalApps": 31,
+  "totalApps": 30,
   "categories": [
     {
       "name": "Audio",
@@ -17,8 +17,8 @@
     {
       "name": "Infrared",
       "slug": "infrared",
-      "count": 2,
-      "lastUpdated": 1769578871
+      "count": 1,
+      "lastUpdated": 1769611981
     },
     {
       "name": "RF",

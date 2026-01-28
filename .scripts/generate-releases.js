@@ -15,7 +15,8 @@ function getLastCommitTimestampForCategory(category, categorizedApps) {
             return Math.floor(Date.now() / 1000); // Current time as fallback
         }
         
-        // First check if any of these files have uncommitted changes
+        // Check if any of these specific files have uncommitted changes
+        let hasUncommittedChanges = false;
         for (const filePath of filePaths) {
             try {
                 const gitStatusCommand = `git status --porcelain "${filePath}"`;
@@ -28,25 +29,44 @@ function getLastCommitTimestampForCategory(category, categorizedApps) {
                 // If file shows up in git status, it has uncommitted changes
                 if (statusResult) {
                     console.log(`📝 Found uncommitted changes in ${category}: ${filePath}`);
-                    return Math.floor(Date.now() / 1000); // Use current time for uncommitted changes
+                    hasUncommittedChanges = true;
+                    break; // Found uncommitted changes, use current time
                 }
             } catch (statusError) {
                 // Ignore git status errors for individual files
             }
         }
         
-        // Use git log to get the most recent commit timestamp for any of these files
-        const pathArgs = filePaths.map(p => `"${p}"`).join(' ');
-        const gitCommand = `git log -1 --format=%ct --follow -- ${pathArgs}`;
+        // If any files in this category have uncommitted changes, use current time
+        if (hasUncommittedChanges) {
+            return Math.floor(Date.now() / 1000);
+        }
         
-        const result = execSync(gitCommand, { 
-            encoding: 'utf8', 
-            stdio: 'pipe',
-            cwd: path.join(__dirname, '..')
-        }).trim();
+        // Get the most recent commit timestamp that touched any file in this category
+        let mostRecentTimestamp = 0;
+        for (const filePath of filePaths) {
+            try {
+                const gitCommand = `git log -1 --format=%ct --follow -- "${filePath}"`;
+                const result = execSync(gitCommand, { 
+                    encoding: 'utf8', 
+                    stdio: 'pipe',
+                    cwd: path.join(__dirname, '..')
+                }).trim();
+                
+                if (result) {
+                    const timestamp = parseInt(result);
+                    if (timestamp > mostRecentTimestamp) {
+                        mostRecentTimestamp = timestamp;
+                    }
+                }
+            } catch (gitError) {
+                // Ignore errors for individual files
+            }
+        }
         
-        if (result) {
-            return parseInt(result);
+        // If we found at least one valid timestamp, use the most recent
+        if (mostRecentTimestamp > 0) {
+            return mostRecentTimestamp;
         }
         
         // Fallback to current time if no commits found
@@ -201,7 +221,6 @@ async function main() {
         const releaseData = {
             category: category,
             count: apps.length,
-            lastUpdated: getLastCommitTimestampForCategory(category, categorizedApps),
             apps: filteredApps
         };
         
@@ -220,24 +239,21 @@ async function main() {
     if (categoriesWithReleases.length > 0) {
         const categoriesFilePath = path.join(releasesDir, 'categories.json');
         
-        // Create categories array with counts and lastUpdated timestamps
+        // Create categories array with counts
         const categoriesWithCounts = categoriesWithReleases.map(category => {
             const categorySlug = category.toLowerCase().replace(/[^a-z0-9]/g, '-');
-            
-            // Get last commit timestamp for this category's metadata files
-            const lastUpdated = getLastCommitTimestampForCategory(category, categorizedApps);
             
             return {
                 name: category,
                 slug: categorySlug,
-                count: categorizedApps[category].length,
-                lastUpdated: lastUpdated
+                count: categorizedApps[category].length
             };
         }).sort((a, b) => a.name.localeCompare(b.name));
         
         const categoriesData = {
             totalCategories: categoriesWithReleases.length,
             totalApps: Object.values(categorizedApps).reduce((sum, apps) => sum + apps.length, 0),
+            lastUpdated: Math.floor(Date.now() / 1000),
             categories: categoriesWithCounts
         };
         

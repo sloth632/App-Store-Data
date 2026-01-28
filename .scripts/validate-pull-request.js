@@ -204,7 +204,7 @@ function compareVersions(v1, v2) {
 }
 
 // Function to validate JSON structure
-async function validateMetadata(filePath, dir) {
+async function validateMetadata(filePath, dir, prAuthor) {
     let hasErrors = false;
     let metadata;
     try {
@@ -212,7 +212,7 @@ async function validateMetadata(filePath, dir) {
         metadata = JSON.parse(content);
     } catch (error) {
         console.log(`    - ❌ Invalid JSON format`);
-        return false;
+        return { success: false, metadataInfo: '' };
     }
     console.log(`    - ✅ Valid JSON format`);
 
@@ -577,6 +577,12 @@ async function validateMetadata(filePath, dir) {
     metadataInfo += `- **Path:** \`${metadata.path}\`\n`;
     metadataInfo += `- **Version:** ${versionStatus}\n`;
     metadataInfo += `- **Category:** ${metadata.category}\n`;
+    
+    // Check for cross-repository contribution
+    if (prAuthor && metadata.owner && prAuthor !== metadata.owner) {
+        metadataInfo += `- **⚠️ Cross-Repository Contribution:** PR by \`${prAuthor}\`, repository owned by \`${metadata.owner}\`\n`;
+    }
+    
     if (compareLink) {
         metadataInfo += `- **Changes:** [View commit comparison](${compareLink})\n`;
     }
@@ -854,12 +860,13 @@ async function main() {
     let hasInvalidMetadata = false;
     let hasMissingLogo = false;
     let isExternalContribution = false;
+    let prAuthor = null;
 
     // Check if this is an external contribution
     if (process.env.GITHUB_EVENT_NAME === 'pull_request' && process.env.GITHUB_EVENT_PATH) {
         try {
             const eventData = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
-            const prAuthor = eventData.pull_request.user.login;
+            prAuthor = eventData.pull_request.user.login;
             
             console.log(`🔍 Checking contribution type - PR Author: ${prAuthor}`);
             
@@ -947,7 +954,7 @@ async function main() {
             };
 
             // Validate this directory
-            const result = await validateDirectoryFiles(directory, metadataFile, logoFile);
+            const result = await validateDirectoryFiles(directory, metadataFile, logoFile, prAuthor);
             
             // Restore console functions
             console.log = originalLog;
@@ -979,7 +986,7 @@ async function main() {
         }
     }
 
-    async function validateDirectoryFiles(dirPath, metadataFile, logoPath) {
+    async function validateDirectoryFiles(dirPath, metadataFile, logoPath, prAuthor) {
         let directoryValid = true;
         let directoryMetadataInfo = '';
         
@@ -990,7 +997,7 @@ async function main() {
             metadataFound = true;
 
             // Validate metadata.json
-            const result = await validateMetadata(metadataFile, dirPath);
+            const result = await validateMetadata(metadataFile, dirPath, prAuthor);
             if (!result.success) {
                 validationFailed = true;
                 hasInvalidMetadata = true;

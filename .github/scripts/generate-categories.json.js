@@ -13,40 +13,16 @@ function getLastCommitTimestampForCategoryFile(categorySlug) {
         
         console.log(`🔍 DEBUG: Looking for timestamp of category file: ${categoryFilePath}`);
 
-        // First check if the category file has uncommitted changes
-        try {
-            const gitStatusCommand = `git status --porcelain "${categoryFilePath}"`;
-            console.log(`🔍 DEBUG: Running git status for: ${categoryFilePath}`);
-            const statusResult = execSync(gitStatusCommand, {
-                encoding: 'utf8',
-                stdio: 'pipe',
-                cwd: path.join(__dirname, '..')
-            }).trim();
-
-            // If file shows up in git status, it has uncommitted changes
-            if (statusResult) {
-                console.log(`📝 Found uncommitted changes in category file: ${categoryFilePath}`);
-                console.log(`🔍 DEBUG: Status result: ${statusResult}`);
-                const currentTimestamp = Math.floor(Date.now() / 1000);
-                console.log(`🔍 DEBUG: Returning current timestamp: ${currentTimestamp} (${new Date(currentTimestamp * 1000).toISOString()})`);
-                return currentTimestamp; // Use current time for uncommitted changes
-            } else {
-                console.log(`🔍 DEBUG: No uncommitted changes found for: ${categoryFilePath}`);
-            }
-        } catch (statusError) {
-            console.log(`🔍 DEBUG: Git status error for ${categoryFilePath}: ${statusError.message}`);
-        }
-
-        // Use git log to get the most recent commit timestamp for the category file
+            // Use git log to get the most recent commit timestamp for the category file
         const gitCommand = `git log -1 --format=%ct --follow -- "${categoryFilePath}"`;
         
         console.log(`🔍 DEBUG: Running git command: ${gitCommand}`);
-        console.log(`🔍 DEBUG: Working directory: ${path.join(__dirname, '..')}`);
+        console.log(`🔍 DEBUG: Working directory: ${path.join(__dirname, '../..')}`);
 
         const result = execSync(gitCommand, {
             encoding: 'utf8',
             stdio: 'pipe',
-            cwd: path.join(__dirname, '..')
+            cwd: path.join(__dirname, '../..')
         }).trim();
 
         console.log(`🔍 DEBUG: Git command result: '${result}'`);
@@ -73,7 +49,7 @@ function getLastCommitTimestampForCategoryFile(categorySlug) {
 
 // Function to read category data from existing category files
 function readCategoryFiles() {
-    const releasesDir = path.join(__dirname, '..', 'releases');
+    const releasesDir = path.join(__dirname, '../..', 'releases');
     const categories = [];
     
     console.log(`📁 Reading category files from: ${releasesDir}`);
@@ -155,7 +131,7 @@ async function main() {
     };
 
     // Write categories.json
-    const categoriesFilePath = path.join(__dirname, '..', 'releases', 'categories.json');
+    const categoriesFilePath = path.join(__dirname, '../..', 'releases', 'categories.json');
     
     try {
         fs.writeFileSync(categoriesFilePath, JSON.stringify(categoriesData, null, 2), 'utf8');

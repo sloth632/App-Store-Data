@@ -1,5 +1,5 @@
 {
-  "name": "WiFi Bruce Force",
+  "name": "WiFi Brute Force",
   "description": "Brute force WiFi network password with dictionary attack",
   "category": "WiFi",
   "version": "1.0.1",
@@ -10,7 +10,7 @@
   "files": [
     {
       "source": "wifi_brute.js",
-      "destination": "WiFi Bruce Force.js"
+      "destination": "WiFi Brute Force.js"
     }
   ]
 }

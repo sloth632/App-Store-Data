@@ -1,0 +1,18 @@
+{
+  "name": "Key Decoding",
+  "description": "Decode and randomly generate key bitting patterns for a bunch of lock brands",
+  "category": "Tools",
+  "version": "1.14.0",
+  "commit": "8219565d63b44e4bbc1332523498f8c8b857cb36",
+  "owner": "SasPes",
+  "repo": "key-decoding",
+  "path": "/",
+  "files": [
+    "KeyDecoding.js"
+  ],
+  "supported-devices": [
+    "Lilygo T-Embed",
+    "Lilygo T-Embed CC1101",
+    "Smoochiee Board"
+  ]
+}

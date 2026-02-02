@@ -38,14 +38,29 @@ jobs:
             name: 'run validation'
           })
 
-    - name: Checkout code
+    - name: Checkout base branch to get latest validation script
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.base_ref }}
+        fetch-depth: 0
+        path: base-repo
+
+    - name: Checkout PR code
       uses: actions/checkout@v4
       with:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
+        path: pr-repo
+
+    - name: Copy validation script from base branch
+      run: |
+        mkdir -p pr-repo/.github/scripts/
+        cp base-repo/.github/scripts/validate-pull-request.js pr-repo/.github/scripts/
+        cd pr-repo
 
     - name: Get changed files
       id: changed-files
+      working-directory: pr-repo
       uses: tj-actions/changed-files@v41
       with:
         files: '**/*'
@@ -58,6 +73,7 @@ jobs:
         node-version: '18'
 
     - name: Validate pull request and post comment
+      working-directory: pr-repo
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         GITHUB_REPOSITORY: ${{ github.repository }}
